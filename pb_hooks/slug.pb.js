@@ -1,21 +1,34 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// REMOVED the collection name filter at the end so it triggers for EVERYTHING
 onRecordBeforeCreateRequest((e) => {
-    console.log("-----------------------------------------");
-    console.log("HOOK TRIGGERED!");
-    console.log("Collection Name: " + e.collection.name);
-    
-    const title = e.record.get("title");
-    console.log("Found Title: " + title);
+    // IMPORTANT: Match this to your collection name in the Admin UI
+    if (e.collection.name !== "posts") return e.next(); 
 
-    if (title) {
-        const slug = title.toLowerCase().replace(/ /g, '-');
-        e.record.set("slug", slug);
-        console.log("New Slug Set: " + slug);
-    } else {
-        console.log("ERROR: No 'title' field found on this record.");
+    const title = e.record.get("title");
+    if (title && !e.record.get("slug")) {
+        const slug = title.toLowerCase()
+            .replace(/[^\w ]+/g, '')
+            .replace(/ +/g, '-')
+            .replace(/^-+|-+$/g, '');
+        
+        const suffix = Math.random().toString(36).substring(2, 7);
+        e.record.set("slug", `${slug}-${suffix}`);
     }
 
     return e.next();
-}); // No collection name here for testing
+}, "posts");
+
+onRecordBeforeUpdateRequest((e) => {
+    if (e.collection.name !== "posts") return e.next();
+
+    const newTitle = e.record.get("title");
+    const oldTitle = e.record.originalCopy().get("title");
+
+    if (newTitle && newTitle !== oldTitle) {
+        const slug = newTitle.toLowerCase().replace(/[^\w ]+/g, '').replace(/ +/g, '-');
+        const suffix = Math.random().toString(36).substring(2, 7);
+        e.record.set("slug", `${slug}-${suffix}`);
+    }
+
+    return e.next();
+}, "posts");
