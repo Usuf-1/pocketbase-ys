@@ -1,34 +1,85 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-onRecordBeforeCreateRequest((e) => {
-    // IMPORTANT: Match this to your collection name in the Admin UI
-    if (e.collection.name !== "posts") return e.next(); 
+/* ---------- CREATE ---------- */
 
-    const title = e.record.get("title");
-    if (title && !e.record.get("slug")) {
-        const slug = title.toLowerCase()
-            .replace(/[^\w ]+/g, '')
-            .replace(/ +/g, '-')
-            .replace(/^-+|-+$/g, '');
-        
-        const suffix = Math.random().toString(36).substring(2, 7);
-        e.record.set("slug", `${slug}-${suffix}`);
+onRecordCreateRequest((e) => {
+    function randomSuffix() {
+    return Math.floor(1000 + Math.random() * 9000)
     }
 
-    return e.next();
-}, "posts");
+    function slugify(str) {
+    return str
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+    }
+  const record = e.record
+  if (!record) return e.next()
 
-onRecordBeforeUpdateRequest((e) => {
-    if (e.collection.name !== "posts") return e.next();
+  const title = record.get("title")
+  if (!title) return e.next()
 
-    const newTitle = e.record.get("title");
-    const oldTitle = e.record.originalCopy().get("title");
+  let baseSlug = slugify(title)
+  let slug
 
-    if (newTitle && newTitle !== oldTitle) {
-        const slug = newTitle.toLowerCase().replace(/[^\w ]+/g, '').replace(/ +/g, '-');
-        const suffix = Math.random().toString(36).substring(2, 7);
-        e.record.set("slug", `${slug}-${suffix}`);
+  while (true) {
+    slug = `${baseSlug}-${randomSuffix()}`
+    try {
+      $app.findFirstRecordByFilter(
+        e.collection.name,
+        "slug = {:slug}",
+        { slug }
+      )
+    } catch {
+      break // unique
+    }
+  }
+
+  record.set("slug", slug)
+  e.next()
+})
+
+/* ---------- UPDATE ---------- */
+
+onRecordUpdateRequest((e) => {
+    function randomSuffix() {
+    return Math.floor(1000 + Math.random() * 9000)
     }
 
-    return e.next();
-}, "posts");
+    function slugify(str) {
+    return str
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+    }
+  const record = e.record
+  if (!record) return e.next()
+
+  const title = record.get("title")
+  if (!title) return e.next()
+
+  let baseSlug = slugify(title)
+  let slug
+
+  while (true) {
+    slug = `${baseSlug}-${randomSuffix()}`
+    try {
+      const found = $app.findFirstRecordByFilter(
+        e.collection.name,
+        "slug = {:slug}",
+        { slug }
+      )
+
+      if (found.id === record.id) break
+    } catch {
+      break // unique
+    }
+  }
+
+  record.set("slug", slug)
+  e.next()
+})
